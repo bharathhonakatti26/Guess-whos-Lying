@@ -2,8 +2,41 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Only flip the user's own video, not others */
+.my-video {
+  transform: rotateY(180deg);
+}
+
+.other-video {
+  transform: none;
+}
+
+/* Ensure videos maintain aspect ratio and don't flicker */
 video {
-  transform: rotateY(180deg)
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background-color: #1f2937;
+  border-radius: inherit;
+}
+
+/* Prevent video container from collapsing */
+.video-container {
+  min-height: 200px;
+  min-width: 250px;
+  position: relative;
+}
+
+/* Loading state for videos */
+.video-loading {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-size: 0.875rem;
+  z-index: 10;
 }
 
 .ownMessage {
