@@ -1,14 +1,7 @@
 import React from "react";
 
 function Header() {
-  return (
-    <div className="header-container">
-      Multi-Player <b>Video Chat</b>
-      <div className="header-subtitle">
-        Up to 6 players per room
-      </div>
-    </div>
-  );
+  return <div className=" bg-gradient-to-b from-indigo-300 via-30% via-blue-200 text-center text-2xl font-light p-4">Google Meet <b>Clone</b></div>;
 }
 
 export default Header;
