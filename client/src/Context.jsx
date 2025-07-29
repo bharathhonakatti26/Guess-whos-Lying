@@ -3,7 +3,7 @@ import { io } from "socket.io-client";
 import Peer from "simple-peer";
 
 const SocketContext = createContext();
-const socket = io("http://localhost:8090/");
+const socket = io("https://guess-whos-lying-server.onrender.com/");
 
 const ContextProvider = ({ children }) => {
   const [msgs, setMsgs] = useState([]); 
