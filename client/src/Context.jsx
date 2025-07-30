@@ -3,13 +3,21 @@ import { io } from "socket.io-client";
 import Peer from "simple-peer";
 
 const SocketContext = createContext();
-const socket = io("https://guess-whos-lying-server.onrender.com/");
+const socket = io("http://localhost:8090");
 const ContextProvider = ({ children }) => {
   const [msgs, setMsgs] = useState([]); // [... {data: 'Hi', isOwnMessage: true/false, id} ] Lets the <Chat/> know whether the message is our or is received from the other peer
   const [callAccepted, setCallAccepted] = useState(false);
   const [callEnded, setCallEnded] = useState(false);
   const [stream, setStream] = useState();
   const [name, setName] = useState("");
+  
+  // Function to set name and notify server
+  const setUserName = (newName) => {
+    setName(newName);
+    if (newName.trim() && me) {
+      socket.emit("setUserName", { userName: newName });
+    }
+  };
   const [call, setCall] = useState({});
   const [me, setMe] = useState(""); // This will now be a 4-digit code
   
@@ -59,7 +67,7 @@ const ContextProvider = ({ children }) => {
       setIsHost(isHost);
       setRoomUsers(roomUsers.map(user => ({ 
         userCode: user.userCode, 
-        userName: userName, 
+        userName: user.userName, 
         isHost: user.isHost 
       })));
     });
@@ -67,7 +75,7 @@ const ContextProvider = ({ children }) => {
     socket.on("userJoined", ({ userCode, userName, roomUsers, participants }) => {
       setRoomUsers(roomUsers.map(user => ({ 
         userCode: user.userCode, 
-        userName: userName, 
+        userName: user.userName, 
         isHost: user.isHost 
       })));
       
@@ -77,7 +85,7 @@ const ContextProvider = ({ children }) => {
       }
     });
     
-    socket.on("userLeft", ({ userCode }) => {
+    socket.on("userLeft", ({ userCode, userName }) => {
       setRoomUsers(prev => prev.filter(user => user.userCode !== userCode));
       
       // Clean up peer connection
@@ -250,7 +258,7 @@ const ContextProvider = ({ children }) => {
         userVideo,
         stream,
         name,
-        setName,
+        setName: setUserName,
         callEnded,
         me,
         msgs,

@@ -1,10 +1,27 @@
-import React, { useContext, useEffect, useRef } from "react";
+import React, { useContext, useEffect, useRef, useState } from "react";
 import { SocketContext } from "../Context";
+import { io } from "socket.io-client";
+
+const socket = io("http://localhost:8090");
 
 // Individual user video component for rooms
 const UserVideo = ({ userCode, userName, isOwnVideo = false }) => {
   const { userVideos, stream, me } = useContext(SocketContext);
+  const [displayName, setDisplayName] = useState(userName || `User ${userCode}`);
   const videoRef = useRef();
+
+  useEffect(() => {
+    if (!userName && userCode && !isOwnVideo) {
+      // Try to get the user name from server
+      socket.emit("getUserName", { userCode }, (response) => {
+        if (response.success && response.userName) {
+          setDisplayName(response.userName);
+        }
+      });
+    } else if (userName) {
+      setDisplayName(userName);
+    }
+  }, [userName, userCode, isOwnVideo]);
 
   useEffect(() => {
     if (isOwnVideo && stream && videoRef.current) {
@@ -29,7 +46,7 @@ const UserVideo = ({ userCode, userName, isOwnVideo = false }) => {
         style={{ minHeight: '200px' }}
       />
       <div className="absolute bottom-2 left-2 bg-black bg-opacity-75 text-white px-2 py-1 rounded text-sm">
-        {isOwnVideo ? `${userName || 'You'} (${me})` : `User ${userCode}`}
+        {isOwnVideo ? `${userName || 'You'} (${me})` : displayName}
       </div>
     </div>
   );

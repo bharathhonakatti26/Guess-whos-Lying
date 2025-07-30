@@ -80,7 +80,7 @@ function Options() {
         <div className="grid grid-cols-2 gap-2 text-sm">
           {roomUsers.map((user, index) => (
             <div key={user.userCode} className="bg-white p-2 rounded border">
-              <span className="font-medium">User {user.userCode}</span>
+              <span className="font-medium">{user.userName || `User ${user.userCode}`}</span>
               {user.isHost && <span className="text-blue-600 ml-1">(Host)</span>}
             </div>
           ))}

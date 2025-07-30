@@ -3,9 +3,27 @@ import { SocketContext } from "../Context";
 import Message from "./Message";
 import { BiSend } from "react-icons/bi";
 import { LuSend } from "react-icons/lu";
+import { io } from "socket.io-client";
+
+const socket = io("http://localhost:8090");
 
 // Room Message Component
 const RoomMessage = ({ message, userName, userCode, timestamp, isOwnMessage }) => {
+  const [displayName, setDisplayName] = useState(userName || `User ${userCode}`);
+
+  useEffect(() => {
+    if (!userName && userCode) {
+      // Try to get the user name from server
+      socket.emit("getUserName", { userCode }, (response) => {
+        if (response.success && response.userName) {
+          setDisplayName(response.userName);
+        }
+      });
+    } else if (userName) {
+      setDisplayName(userName);
+    }
+  }, [userName, userCode]);
+
   const formatTime = (timestamp) => {
     return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
@@ -21,7 +39,7 @@ const RoomMessage = ({ message, userName, userCode, timestamp, isOwnMessage }) =
       >
         {!isOwnMessage && (
           <div className="text-xs font-semibold mb-1">
-            User {userCode}
+            {displayName}
           </div>
         )}
         <div className="text-sm">{message}</div>
