@@ -56,8 +56,11 @@ function Options() {
           <h3 className="text-lg font-semibold text-gray-800">Room: {currentRoom}</h3>
           <p className="text-sm text-gray-600">Your ID: {me}</p>
           <p className="text-sm text-gray-600">
-            Participants: {roomUsers.length}/6 {isHost && "(You are the host)"}
+            Participants: {roomUsers.length}/6
           </p>
+          {isHost && (
+            <p className="text-sm text-blue-600 font-semibold">🏆 You are the host</p>
+          )}
         </div>
         
         <div className="flex gap-2 justify-center">
@@ -79,9 +82,9 @@ function Options() {
         
         <div className="grid grid-cols-2 gap-2 text-sm">
           {roomUsers.map((user, index) => (
-            <div key={user.userCode} className="bg-white p-2 rounded border">
+            <div key={user.userCode} className={`p-2 rounded border ${user.isHost ? 'bg-blue-50 border-blue-200' : 'bg-white'}`}>
               <span className="font-medium">{user.userName || `User ${user.userCode}`}</span>
-              {user.isHost && <span className="text-blue-600 ml-1">(Host)</span>}
+              {user.isHost && <span className="text-blue-600 ml-1">👑 Host</span>}
             </div>
           ))}
         </div>

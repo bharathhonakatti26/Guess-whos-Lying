@@ -57,23 +57,19 @@ async function cleanupUser(socketId) {
     userCodes.delete(socketId);
     userNames.delete(userCode);
     
-    // Update user status in database
+    // Delete user from database completely
     try {
-      await User.findOneAndUpdate(
-        { userCode },
-        { 
-          isOnline: false,
-          lastActive: new Date(),
-          currentRoom: null 
-        }
-      );
+      await User.findOneAndDelete({ userCode });
+      console.log(`User ${userCode} deleted from database`);
     } catch (error) {
-      console.error('Error updating user status:', error);
+      console.error('Error deleting user:', error);
     }
   }
   
   if (roomCode && rooms.has(roomCode)) {
     const room = rooms.get(roomCode);
+    const wasHost = room.host === socketId;
+    
     room.users.delete(socketId);
     
     // Notify other users in room that this user left
@@ -83,25 +79,51 @@ async function cleanupUser(socketId) {
       io.to(otherSocketId).emit("userLeft", { userCode, userName });
     });
     
-    // Update room in database and delete if empty
+    // Handle room cleanup and host transfer
     try {
       if (room.users.size === 0) {
+        // No users left - delete room completely
         rooms.delete(roomCode);
-        await Room.findOneAndUpdate(
-          { roomCode },
-          { isActive: false }
-        );
+        await Room.findOneAndDelete({ roomCode });
+        console.log(`Room ${roomCode} deleted - no users remaining`);
       } else {
+        // Users still in room - update room
+        let newHostSocketId = room.host;
+        
+        // If the host left, assign new host
+        if (wasHost) {
+          newHostSocketId = Array.from(room.users)[0]; // First remaining user becomes host
+          room.host = newHostSocketId;
+          const newHostUserCode = userCodes.get(newHostSocketId);
+          const newHostUserName = userNames.get(newHostUserCode);
+          
+          // Notify all users about new host
+          room.users.forEach(otherSocketId => {
+            io.to(otherSocketId).emit("newHost", { 
+              hostUserCode: newHostUserCode,
+              hostUserName: newHostUserName
+            });
+          });
+          
+          console.log(`New host assigned: ${newHostUserCode} for room ${roomCode}`);
+        }
+        
         // Update room users in database
         const roomUsers = Array.from(room.users).map(socketId => ({
           userCode: userCodes.get(socketId),
-          userName: userNames.get(userCodes.get(socketId))
+          userName: userNames.get(userCodes.get(socketId)),
+          joinedAt: new Date()
         }));
         
         await Room.findOneAndUpdate(
           { roomCode },
-          { users: roomUsers }
+          { 
+            users: roomUsers,
+            hostUserCode: userCodes.get(newHostSocketId)
+          }
         );
+        
+        console.log(`Room ${roomCode} updated - ${room.users.size} users remaining`);
       }
     } catch (error) {
       console.error('Error updating room:', error);
@@ -311,8 +333,85 @@ io.on("connection", async (socket) => {
     });
   });
   
-  socket.on("leaveRoom", () => {
-    cleanupUser(socket.id);
+  socket.on("leaveRoom", async () => {
+    const userCode = userCodes.get(socket.id);
+    const roomCode = userRooms.get(socket.id);
+    
+    if (roomCode && rooms.has(roomCode)) {
+      const room = rooms.get(roomCode);
+      const wasHost = room.host === socket.id;
+      
+      // Remove user from room
+      room.users.delete(socket.id);
+      socket.leave(roomCode);
+      userRooms.delete(socket.id);
+      
+      // Notify other users that this user left
+      room.users.forEach(otherSocketId => {
+        const userName = userNames.get(userCode);
+        io.to(otherSocketId).emit("userLeft", { userCode, userName });
+      });
+      
+      // Update user in database - remove from room but keep user
+      try {
+        await User.findOneAndUpdate(
+          { userCode },
+          { currentRoom: null }
+        );
+      } catch (error) {
+        console.error('Error updating user room status:', error);
+      }
+      
+      // Handle room cleanup and host transfer
+      try {
+        if (room.users.size === 0) {
+          // No users left - delete room completely
+          rooms.delete(roomCode);
+          await Room.findOneAndDelete({ roomCode });
+          console.log(`Room ${roomCode} deleted - no users remaining`);
+        } else {
+          // Users still in room - update room
+          let newHostSocketId = room.host;
+          
+          // If the host left, assign new host
+          if (wasHost) {
+            newHostSocketId = Array.from(room.users)[0]; // First remaining user becomes host
+            room.host = newHostSocketId;
+            const newHostUserCode = userCodes.get(newHostSocketId);
+            const newHostUserName = userNames.get(newHostUserCode);
+            
+            // Notify all users about new host
+            room.users.forEach(otherSocketId => {
+              io.to(otherSocketId).emit("newHost", { 
+                hostUserCode: newHostUserCode,
+                hostUserName: newHostUserName
+              });
+            });
+            
+            console.log(`New host assigned: ${newHostUserCode} for room ${roomCode}`);
+          }
+          
+          // Update room users in database
+          const roomUsers = Array.from(room.users).map(socketId => ({
+            userCode: userCodes.get(socketId),
+            userName: userNames.get(userCodes.get(socketId)),
+            joinedAt: new Date()
+          }));
+          
+          await Room.findOneAndUpdate(
+            { roomCode },
+            { 
+              users: roomUsers,
+              hostUserCode: userCodes.get(newHostSocketId)
+            }
+          );
+          
+          console.log(`Room ${roomCode} updated - ${room.users.size} users remaining`);
+        }
+      } catch (error) {
+        console.error('Error updating room:', error);
+      }
+    }
   });
   
   // WebRTC signaling for rooms

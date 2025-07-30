@@ -96,6 +96,24 @@ const ContextProvider = ({ children }) => {
       }
     });
     
+    socket.on("newHost", ({ hostUserCode, hostUserName }) => {
+      // Update room users to reflect new host
+      setRoomUsers(prev => prev.map(user => ({
+        ...user,
+        isHost: user.userCode === hostUserCode
+      })));
+      
+      // Update my host status
+      setIsHost(hostUserCode === me);
+      
+      // Show notification about new host
+      if (hostUserCode !== me) {
+        alert(`${hostUserName || `User ${hostUserCode}`} is now the host`);
+      } else {
+        alert("You are now the host of this room");
+      }
+    });
+    
     socket.on("signal", ({ userCode, signal, roomCode }) => {
       if (roomCode === currentRoom) {
         if (peerConnections.current.has(userCode)) {
@@ -129,6 +147,7 @@ const ContextProvider = ({ children }) => {
       socket.off("roomJoined");
       socket.off("userJoined");
       socket.off("userLeft");
+      socket.off("newHost");
       socket.off("signal");
       socket.off("roomMessage");
       socket.off("roomError");
