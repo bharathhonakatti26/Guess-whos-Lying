@@ -3,7 +3,7 @@ import { io } from "socket.io-client";
 import Peer from "simple-peer";
 
 const SocketContext = createContext();
-const socket = io("https://guess-whos-lying-server.onrender.com/");
+const socket = io("http://localhost:8090");
 const ContextProvider = ({ children }) => {
   const [msgs, setMsgs] = useState([]); // [... {data: 'Hi', isOwnMessage: true/false, id} ] Lets the <Chat/> know whether the message is our or is received from the other peer
   const [callAccepted, setCallAccepted] = useState(false);
@@ -62,6 +62,9 @@ const ContextProvider = ({ children }) => {
         userName: userName, 
         isHost: user.isHost 
       })));
+      
+      // Load previous messages for this room
+      loadRoomMessages(roomCode);
     });
     
     socket.on("userJoined", ({ userCode, userName, roomUsers, participants }) => {
@@ -77,14 +80,48 @@ const ContextProvider = ({ children }) => {
       }
     });
     
-    socket.on("userLeft", ({ userCode }) => {
-      setRoomUsers(prev => prev.filter(user => user.userCode !== userCode));
+    socket.on("userLeft", ({ userCode, roomUsers, participants }) => {
+      // Update room users with the new list from server
+      if (roomUsers) {
+        setRoomUsers(roomUsers.map(user => ({ 
+          userCode: user.userCode, 
+          userName: user.userName || name, 
+          isHost: user.isHost 
+        })));
+      } else {
+        // Fallback to just removing the user
+        setRoomUsers(prev => prev.filter(user => user.userCode !== userCode));
+      }
       
       // Clean up peer connection
       if (peerConnections.current.has(userCode)) {
         peerConnections.current.get(userCode).destroy();
         peerConnections.current.delete(userCode);
         userVideos.current.delete(userCode);
+      }
+    });
+    
+    socket.on("hostTransferred", ({ newHostUserCode, message }) => {
+      // Update host status if I'm the new host
+      if (newHostUserCode === me) {
+        setIsHost(true);
+        alert(message);
+      }
+      
+      // Update room users to reflect new host
+      setRoomUsers(prev => prev.map(user => ({
+        ...user,
+        isHost: user.userCode === newHostUserCode
+      })));
+    });
+    
+    socket.on("roomUpdated", ({ roomCode, roomUsers, participants }) => {
+      if (roomCode === currentRoom) {
+        setRoomUsers(roomUsers.map(user => ({ 
+          userCode: user.userCode, 
+          userName: user.userName || name, 
+          isHost: user.isHost 
+        })));
       }
     });
     
@@ -121,6 +158,8 @@ const ContextProvider = ({ children }) => {
       socket.off("roomJoined");
       socket.off("userJoined");
       socket.off("userLeft");
+      socket.off("hostTransferred");
+      socket.off("roomUpdated");
       socket.off("signal");
       socket.off("roomMessage");
       socket.off("roomError");
@@ -185,6 +224,25 @@ const ContextProvider = ({ children }) => {
   const sendRoomMessage = (message) => {
     if (currentRoom) {
       socket.emit("roomMessage", { roomCode: currentRoom, message, userName: name });
+    }
+  };
+  
+  // Load previous messages when joining a room
+  const loadRoomMessages = async (roomCode) => {
+    try {
+      const response = await fetch(`http://localhost:8090/api/rooms/${roomCode}/messages`);
+      if (response.ok) {
+        const data = await response.json();
+        const formattedMessages = data.messages.map(msg => ({
+          ...msg,
+          isOwnMessage: msg.userCode === me
+        }));
+        setRoomMessages(formattedMessages);
+      }
+    } catch (error) {
+      console.error("Error loading room messages:", error);
+      // Don't show error to user, just start with empty messages
+      setRoomMessages([]);
     }
   };
 
@@ -268,6 +326,7 @@ const ContextProvider = ({ children }) => {
         joinRoom,
         leaveRoom,
         sendRoomMessage,
+        loadRoomMessages,
         peerConnections,
         userVideos,
       }}
