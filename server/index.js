@@ -28,6 +28,7 @@ const userCodes = new Map(); // socketId -> 4-digit code
 const codeToSocket = new Map(); // 4-digit code -> socketId
 const userRooms = new Map(); // socketId -> roomCode
 const userNames = new Map(); // userCode -> userName
+const userDbCreated = new Map(); // userCode -> boolean (track if DB entry already created)
 
 // Generate 4-digit user code
 async function generateUserCode() {
@@ -56,13 +57,16 @@ async function cleanupUser(socketId) {
     codeToSocket.delete(userCode);
     userCodes.delete(socketId);
     userNames.delete(userCode);
+    userDbCreated.delete(userCode);
     
-    // Delete user from database completely
+    // Always delete user from database when they disconnect
     try {
-      await User.findOneAndDelete({ userCode });
-      console.log(`User ${userCode} deleted from database`);
+      const deletedUser = await User.findOneAndDelete({ userCode });
+      if (deletedUser) {
+        console.log(`User ${userCode} deleted from database on disconnect`);
+      }
     } catch (error) {
-      console.error('Error deleting user:', error);
+      console.error('Error deleting user on disconnect:', error);
     }
   }
   
@@ -143,17 +147,9 @@ io.on("connection", async (socket) => {
   userCodes.set(socket.id, userCode);
   codeToSocket.set(userCode, socket.id);
   
-  // Create user in database
-  try {
-    await User.create({
-      userCode,
-      userName: '', // Will be set when user provides name
-      socketId: socket.id,
-      isOnline: true
-    });
-  } catch (error) {
-    console.error('Error creating user:', error);
-  }
+  console.log(`New connection: Socket ${socket.id} assigned user code ${userCode}`);
+  
+  // Don't create user in database immediately - wait for user interaction
   
   socket.emit("me", userCode); // Send 4-digit code instead of socket.id
   
@@ -161,13 +157,28 @@ io.on("connection", async (socket) => {
   socket.on("setUserName", async ({ userName }) => {
     userNames.set(userCode, userName);
     
-    try {
-      await User.findOneAndUpdate(
-        { userCode },
-        { userName }
-      );
-    } catch (error) {
-      console.error('Error updating user name:', error);
+    // Only create database entry if not already created for this user
+    if (!userDbCreated.get(userCode)) {
+      try {
+        const user = await User.findOneAndUpdate(
+          { userCode },
+          { 
+            userCode,
+            userName,
+            socketId: socket.id,
+            isOnline: true,
+            lastActive: new Date()
+          },
+          { upsert: true, new: true }
+        );
+        userDbCreated.set(userCode, true);
+        console.log(`User ${userCode} database entry created with name: ${userName}`);
+      } catch (error) {
+        console.error('Error creating/updating user:', error);
+      }
+    } else {
+      // Just update the name in memory, don't spam database
+      console.log(`User ${userCode} name updated to: ${userName} (in memory only)`);
     }
   });
   
@@ -219,15 +230,21 @@ io.on("connection", async (socket) => {
     userRooms.set(socket.id, roomCode);
     userNames.set(userCode, userName);
     
-    // Update user in database
+    // Create or update user in database
     try {
       await User.findOneAndUpdate(
         { userCode },
         { 
+          userCode,
           userName,
-          currentRoom: roomCode 
-        }
+          socketId: socket.id,
+          currentRoom: roomCode,
+          isOnline: true,
+          lastActive: new Date()
+        },
+        { upsert: true, new: true }
       );
+      userDbCreated.set(userCode, true);
       
       // Create room in database
       await Room.create({
@@ -239,6 +256,7 @@ io.on("connection", async (socket) => {
           joinedAt: new Date()
         }]
       });
+      console.log(`User ${userCode} created room ${roomCode}`);
     } catch (error) {
       console.error('Error creating room:', error);
     }
@@ -279,15 +297,21 @@ io.on("connection", async (socket) => {
     userNames.set(userCode, userName);
     socket.join(roomCode);
     
-    // Update user in database
+    // Create or update user in database
     try {
       await User.findOneAndUpdate(
         { userCode },
         { 
+          userCode,
           userName,
-          currentRoom: roomCode 
-        }
+          socketId: socket.id,
+          currentRoom: roomCode,
+          isOnline: true,
+          lastActive: new Date()
+        },
+        { upsert: true, new: true }
       );
+      userDbCreated.set(userCode, true);
       
       // Update room in database
       const roomUsers = Array.from(room.users).map(socketId => ({
@@ -300,6 +324,7 @@ io.on("connection", async (socket) => {
         { roomCode },
         { users: roomUsers }
       );
+      console.log(`User ${userCode} joined room ${roomCode}`);
     } catch (error) {
       console.error('Error updating room:', error);
     }
@@ -352,14 +377,14 @@ io.on("connection", async (socket) => {
         io.to(otherSocketId).emit("userLeft", { userCode, userName });
       });
       
-      // Update user in database - remove from room but keep user
+      // Delete user from database completely when they leave room
       try {
-        await User.findOneAndUpdate(
-          { userCode },
-          { currentRoom: null }
-        );
+        const deletedUser = await User.findOneAndDelete({ userCode });
+        if (deletedUser) {
+          console.log(`User ${userCode} deleted from database when leaving room`);
+        }
       } catch (error) {
-        console.error('Error updating user room status:', error);
+        console.error('Error deleting user when leaving room:', error);
       }
       
       // Handle room cleanup and host transfer
@@ -453,6 +478,7 @@ io.on("connection", async (socket) => {
   });
   
   socket.on("disconnect", () => {
+    console.log(`Socket ${socket.id} disconnecting, cleaning up user...`);
     cleanupUser(socket.id);
     socket.broadcast.emit("callEnded");
   });

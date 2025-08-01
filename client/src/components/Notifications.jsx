@@ -1,16 +1,13 @@
 import { useContext, useEffect, useState } from "react";
 import { SocketContext } from "../Context";
 import { BiSolidPhoneIncoming } from "react-icons/bi";
-import { io } from "socket.io-client";
-
-const socket = io("http://localhost:8090");
 
 const Notifications = () => {
-  const { answerCall, call, callAccepted } = useContext(SocketContext);
+  const { answerCall, call, callAccepted, socket } = useContext(SocketContext);
   const [callerName, setCallerName] = useState("");
 
   useEffect(() => {
-    if (call.isReceivingCall && call.from) {
+    if (call.isReceivingCall && call.from && socket) {
       // If call.name is provided, use it, otherwise try to get from server
       if (call.name) {
         setCallerName(call.name);
@@ -24,7 +21,7 @@ const Notifications = () => {
         });
       }
     }
-  }, [call.isReceivingCall, call.from, call.name]);
+  }, [call.isReceivingCall, call.from, call.name, socket]);
 
   return (
     <>

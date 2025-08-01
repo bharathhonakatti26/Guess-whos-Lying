@@ -3,16 +3,14 @@ import { SocketContext } from "../Context";
 import Message from "./Message";
 import { BiSend } from "react-icons/bi";
 import { LuSend } from "react-icons/lu";
-import { io } from "socket.io-client";
-
-const socket = io("http://localhost:8090");
 
 // Room Message Component
 const RoomMessage = ({ message, userName, userCode, timestamp, isOwnMessage }) => {
   const [displayName, setDisplayName] = useState(userName || `User ${userCode}`);
+  const { socket } = useContext(SocketContext);
 
   useEffect(() => {
-    if (!userName && userCode) {
+    if (!userName && userCode && socket) {
       // Try to get the user name from server
       socket.emit("getUserName", { userCode }, (response) => {
         if (response.success && response.userName) {
@@ -22,7 +20,7 @@ const RoomMessage = ({ message, userName, userCode, timestamp, isOwnMessage }) =
     } else if (userName) {
       setDisplayName(userName);
     }
-  }, [userName, userCode]);
+  }, [userName, userCode, socket]);
 
   const formatTime = (timestamp) => {
     return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });

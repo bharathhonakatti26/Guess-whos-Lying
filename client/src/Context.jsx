@@ -3,7 +3,7 @@ import { io } from "socket.io-client";
 import Peer from "simple-peer";
 
 const SocketContext = createContext();
-const socket = io("http://localhost:8090");
+
 const ContextProvider = ({ children }) => {
   const [msgs, setMsgs] = useState([]); // [... {data: 'Hi', isOwnMessage: true/false, id} ] Lets the <Chat/> know whether the message is our or is received from the other peer
   const [callAccepted, setCallAccepted] = useState(false);
@@ -11,11 +11,19 @@ const ContextProvider = ({ children }) => {
   const [stream, setStream] = useState();
   const [name, setName] = useState("");
   
-  // Function to set name and notify server
+  // Socket connection state
+  const [socket, setSocket] = useState(null);
+  
+  // Function to set name locally (for UI)
   const setUserName = (newName) => {
     setName(newName);
-    if (newName.trim() && me) {
-      socket.emit("setUserName", { userName: newName });
+    // Don't send to server immediately - only when creating/joining room
+  };
+
+  // Function to send name to server (called only when needed)
+  const sendUserNameToServer = (userName) => {
+    if (userName.trim() && me && socket) {
+      socket.emit("setUserName", { userName });
     }
   };
   const [call, setCall] = useState({});
@@ -36,6 +44,10 @@ const ContextProvider = ({ children }) => {
   const userVideos = useRef(new Map()); // userCode -> video element ref
 
   useEffect(() => {
+    // Create socket connection
+    const newSocket = io("http://localhost:8090");
+    setSocket(newSocket);
+
     navigator.mediaDevices
       .getUserMedia({ video: true, audio: true })
       .then((currentStream) => {
@@ -48,21 +60,21 @@ const ContextProvider = ({ children }) => {
         console.error(err);
       });
     
-    socket.on("me", (userCode) => setMe(userCode)); // Now receives 4-digit code
+    newSocket.on("me", (userCode) => setMe(userCode)); // Now receives 4-digit code
     
     // Legacy 1-on-1 calling
-    socket.on("callUser", ({ from, name: callerName, signal }) => {
+    newSocket.on("callUser", ({ from, name: callerName, signal }) => {
       setCall({ isReceivingCall: true, from, name: callerName, signal });
     });
     
     // Room events
-    socket.on("roomCreated", ({ roomCode, userCode, userName, isHost, participants }) => {
+    newSocket.on("roomCreated", ({ roomCode, userCode, userName, isHost, participants }) => {
       setCurrentRoom(roomCode);
       setIsHost(isHost);
       setRoomUsers([{ userCode, userName, isHost }]);
     });
     
-    socket.on("roomJoined", ({ roomCode, userCode, userName, roomUsers, participants, isHost }) => {
+    newSocket.on("roomJoined", ({ roomCode, userCode, userName, roomUsers, participants, isHost }) => {
       setCurrentRoom(roomCode);
       setIsHost(isHost);
       setRoomUsers(roomUsers.map(user => ({ 
@@ -72,7 +84,7 @@ const ContextProvider = ({ children }) => {
       })));
     });
     
-    socket.on("userJoined", ({ userCode, userName, roomUsers, participants }) => {
+    newSocket.on("userJoined", ({ userCode, userName, roomUsers, participants }) => {
       setRoomUsers(roomUsers.map(user => ({ 
         userCode: user.userCode, 
         userName: user.userName, 
@@ -85,7 +97,7 @@ const ContextProvider = ({ children }) => {
       }
     });
     
-    socket.on("userLeft", ({ userCode, userName }) => {
+    newSocket.on("userLeft", ({ userCode, userName }) => {
       setRoomUsers(prev => prev.filter(user => user.userCode !== userCode));
       
       // Clean up peer connection
@@ -96,7 +108,7 @@ const ContextProvider = ({ children }) => {
       }
     });
     
-    socket.on("newHost", ({ hostUserCode, hostUserName }) => {
+    newSocket.on("newHost", ({ hostUserCode, hostUserName }) => {
       // Update room users to reflect new host
       setRoomUsers(prev => prev.map(user => ({
         ...user,
@@ -114,7 +126,7 @@ const ContextProvider = ({ children }) => {
       }
     });
     
-    socket.on("signal", ({ userCode, signal, roomCode }) => {
+    newSocket.on("signal", ({ userCode, signal, roomCode }) => {
       if (roomCode === currentRoom) {
         if (peerConnections.current.has(userCode)) {
           peerConnections.current.get(userCode).signal(signal);
@@ -124,7 +136,7 @@ const ContextProvider = ({ children }) => {
       }
     });
     
-    socket.on("roomMessage", ({ message, userName, userCode, timestamp }) => {
+    newSocket.on("roomMessage", ({ message, userName, userCode, timestamp }) => {
       setRoomMessages(prev => [...prev, { 
         message, 
         userName, 
@@ -134,28 +146,31 @@ const ContextProvider = ({ children }) => {
       }]);
     });
     
-    socket.on("roomError", ({ message }) => {
+    newSocket.on("roomError", ({ message }) => {
       alert(message);
     });
     
     return () => {
       // Cleanup on unmount
       peerConnections.current.forEach(peer => peer.destroy());
-      socket.off("me");
-      socket.off("callUser");
-      socket.off("roomCreated");
-      socket.off("roomJoined");
-      socket.off("userJoined");
-      socket.off("userLeft");
-      socket.off("newHost");
-      socket.off("signal");
-      socket.off("roomMessage");
-      socket.off("roomError");
+      newSocket.off("me");
+      newSocket.off("callUser");
+      newSocket.off("roomCreated");
+      newSocket.off("roomJoined");
+      newSocket.off("userJoined");
+      newSocket.off("userLeft");
+      newSocket.off("newHost");
+      newSocket.off("signal");
+      newSocket.off("roomMessage");
+      newSocket.off("roomError");
+      newSocket.disconnect();
     };
-  }, [currentRoom, me]);
+  }, []); // Empty dependency array to run only once
 
   // Create peer connection for room users
   const createPeerConnection = (userCode, initiator, incomingSignal = null) => {
+    if (!socket) return;
+    
     const peer = new Peer({
       initiator,
       trickle: false,
@@ -188,15 +203,25 @@ const ContextProvider = ({ children }) => {
 
   // Room functions
   const createRoom = (userName) => {
-    socket.emit("createRoom", { userName });
+    if (socket) {
+      // Send name to server only when creating room
+      sendUserNameToServer(userName);
+      socket.emit("createRoom", { userName });
+    }
   };
   
   const joinRoom = (roomCode, userName) => {
-    socket.emit("joinRoom", { roomCode, userName });
+    if (socket) {
+      // Send name to server only when joining room
+      sendUserNameToServer(userName);
+      socket.emit("joinRoom", { roomCode, userName });
+    }
   };
   
   const leaveRoom = () => {
-    socket.emit("leaveRoom");
+    if (socket) {
+      socket.emit("leaveRoom");
+    }
     
     // Clean up all peer connections
     peerConnections.current.forEach(peer => peer.destroy());
@@ -210,13 +235,18 @@ const ContextProvider = ({ children }) => {
   };
   
   const sendRoomMessage = (message) => {
-    if (currentRoom) {
+    if (currentRoom && socket) {
       socket.emit("roomMessage", { roomCode: currentRoom, message, userName: name });
     }
   };
 
   // Legacy 1-on-1 functions
   const answerCall = () => {
+    if (!socket) return;
+    
+    // Send name to server only when answering a call
+    sendUserNameToServer(name);
+    
     setCallAccepted(true);
     const peer = new Peer({ initiator: false, trickle: false, stream });
     peer.on("signal", (data) => {
@@ -231,6 +261,11 @@ const ContextProvider = ({ children }) => {
   };
 
   const callUser = (userCodeToCall) => {
+    if (!socket) return;
+    
+    // Send name to server only when making a call
+    sendUserNameToServer(name);
+    
     const peer = new Peer({ initiator: true, trickle: false, stream });
     peer.on("signal", (data) => {
       socket.emit("callUser", { userToCall: userCodeToCall, signalData: data, from: me, name });
@@ -297,6 +332,7 @@ const ContextProvider = ({ children }) => {
         sendRoomMessage,
         peerConnections,
         userVideos,
+        socket, // Export socket from state
       }}
     >
       {children}
