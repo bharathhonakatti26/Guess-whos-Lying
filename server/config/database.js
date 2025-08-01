@@ -2,19 +2,6 @@ const mongoose = require('mongoose');
 
 const connectDB = async () => {
   try {
-<<<<<<< HEAD
-    // Use a local MongoDB connection or set MONGODB_URI environment variable
-    const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/guess-whos-lying';
-    
-    await mongoose.connect(mongoURI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
-    
-    console.log('MongoDB connected successfully');
-  } catch (error) {
-    console.error('MongoDB connection error:', error);
-=======
     // MongoDB connection string - you can use MongoDB Atlas (cloud) or local MongoDB
     const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/guess-whos-lying';
     
@@ -31,13 +18,10 @@ const connectDB = async () => {
     
   } catch (error) {
     console.error('Database connection error:', error);
->>>>>>> dd81abf913b56b2591cfb37ed805cba89e585c85
     process.exit(1);
   }
 };
 
-<<<<<<< HEAD
-=======
 const createIndexes = async () => {
   try {
     // Import Room model only when needed
@@ -77,5 +61,4 @@ process.on('SIGINT', async () => {
   }
 });
 
->>>>>>> dd81abf913b56b2591cfb37ed805cba89e585c85
 module.exports = connectDB;

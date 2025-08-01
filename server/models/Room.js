@@ -1,29 +1,5 @@
 const mongoose = require('mongoose');
 
-<<<<<<< HEAD
-const roomSchema = new mongoose.Schema({
-  roomCode: {
-    type: String,
-    required: true,
-    unique: true,
-    length: 6
-  },
-  hostUserCode: {
-    type: String,
-    required: true
-  },
-  users: [{
-    userCode: String,
-    userName: String,
-    joinedAt: {
-      type: Date,
-      default: Date.now
-    }
-  }],
-  maxUsers: {
-    type: Number,
-    default: 6
-=======
 // User schema for room participants
 const userSchema = new mongoose.Schema({
   userCode: {
@@ -45,24 +21,11 @@ const userSchema = new mongoose.Schema({
   joinedAt: {
     type: Date,
     default: Date.now
->>>>>>> dd81abf913b56b2591cfb37ed805cba89e585c85
   },
   isActive: {
     type: Boolean,
     default: true
   }
-<<<<<<< HEAD
-}, {
-  timestamps: true
-});
-
-// Index for better performance
-roomSchema.index({ roomCode: 1 });
-roomSchema.index({ hostUserCode: 1 });
-roomSchema.index({ isActive: 1 });
-
-module.exports = mongoose.model('Room', roomSchema);
-=======
 });
 
 // Message schema for room chat
@@ -254,4 +217,3 @@ roomSchema.statics.deleteRoomCompletely = function(roomCode) {
 const Room = mongoose.model('Room', roomSchema);
 
 module.exports = Room;
->>>>>>> dd81abf913b56b2591cfb37ed805cba89e585c85
