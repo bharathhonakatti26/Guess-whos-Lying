@@ -1,27 +1,22 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* Import component styles */
+@import './styles/components.css';
 
-video {
-  transform: rotateY(180deg)
+/* Base styles */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
 }
 
-.ownMessage {
-  @apply w-max max-w-80 self-end rounded-xl rounded-ee-none bg-gradient-to-tr from-indigo-200 to-blue-100 p-1 px-3 text-gray-700;
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-.othersMessage {
-  @apply w-max max-w-80 rounded-xl rounded-es-none bg-gray-200 p-1 px-3 text-gray-700;
-}
-
-.btn-blue-grad {
- @apply px-4 py-2 bg-gradient-to-tr text-white rounded-md font-semibold text-sm shadow-lg shadow-indigo-300 from-indigo-600 to-blue-500 active:from-indigo-700 active:to-blue-600;
-}
-
-.btn-red-grad {
-  @apply rounded-md bg-gradient-to-tr from-red-600 to-orange-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-red-300 active:from-red-700 active:to-orange-600;
- }
-
-.btn-green-grad {
-  @apply rounded-md bg-gradient-to-tr from-green-600 to-emerald-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-green-300 active:from-green-700 active:to-emerald-600;
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
 }

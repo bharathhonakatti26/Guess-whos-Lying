@@ -6,9 +6,9 @@ import Chat from './components/Chat'
 
 function App() {
   return (
-    <div className='flex flex-col'>
+    <div className='app-container'>
       <Header/>
-      <div className='p-4'>
+      <div className='main-content'>
         <Notifications/>
         <VideoPlayer/>
         <Options/>

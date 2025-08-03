@@ -51,28 +51,28 @@ function Options() {
 
   if (currentRoom) {
     return (
-      <div className="flex flex-col gap-4 mt-4 p-4 bg-gray-50 rounded-lg">
-        <div className="text-center">
-          <h3 className="text-lg font-semibold text-gray-800">Room: {currentRoom}</h3>
-          <p className="text-sm text-gray-600">Your ID: {me}</p>
-          <p className="text-sm text-gray-600">
+      <div className="room-info">
+        <div className="room-header">
+          <h3 className="room-title">Room: {currentRoom}</h3>
+          <p className="room-details">Your ID: {me}</p>
+          <p className="room-details">
             Participants: {roomUsers.length}/6
           </p>
           {isHost && (
-            <p className="text-sm text-blue-600 font-semibold">🏆 You are the host</p>
+            <p className="host-indicator">🏆 You are the host</p>
           )}
         </div>
         
-        <div className="flex gap-2 justify-center">
+        <div className="room-controls">
           <button
-            className="btn-blue-grad flex items-center gap-2"
+            className="btn-blue-grad btn-flex-center"
             onClick={() => copyToClipboard(currentRoom)}
           >
             <MdContentCopy />
             Copy Room Code
           </button>
           <button
-            className="btn-red-grad flex items-center gap-2"
+            className="btn-red-grad btn-flex-center"
             onClick={leaveRoom}
           >
             <MdExitToApp />
@@ -80,11 +80,11 @@ function Options() {
           </button>
         </div>
         
-        <div className="grid grid-cols-2 gap-2 text-sm">
+        <div className="room-users">
           {roomUsers.map((user, index) => (
-            <div key={user.userCode} className={`p-2 rounded border ${user.isHost ? 'bg-blue-50 border-blue-200' : 'bg-white'}`}>
-              <span className="font-medium">{user.userName || `User ${user.userCode}`}</span>
-              {user.isHost && <span className="text-blue-600 ml-1">👑 Host</span>}
+            <div key={user.userCode} className={`user-item ${user.isHost ? 'host' : ''}`}>
+              <span className="user-name">{user.userName || `User ${user.userCode}`}</span>
+              {user.isHost && <span className="host-crown">👑 Host</span>}
             </div>
           ))}
         </div>
@@ -93,15 +93,15 @@ function Options() {
   }
 
   return (
-    <div className="flex flex-col gap-4 mt-4">
+    <div className="options-container">
       {/* User Information */}
-      <div className="text-center p-3 bg-blue-50 rounded-lg">
-        <p className="text-sm text-gray-600">Your ID:</p>
-        <div className="flex items-center justify-center gap-2">
-          <span className="text-2xl font-bold text-blue-600">{me}</span>
+      <div className="user-info">
+        <p className="user-info-label">Your ID:</p>
+        <div className="user-info-id">
+          <span className="user-id">{me}</span>
           {me && (
             <button
-              className="p-1 text-blue-600 hover:bg-blue-100 rounded"
+              className="copy-button"
               onClick={() => copyToClipboard(me)}
             >
               <MdContentCopy size={16} />
@@ -115,7 +115,7 @@ function Options() {
           className="btn-red-grad"
           onClick={leaveCall}
         >
-          <span className="flex gap-2 justify-center items-center">
+          <span className="btn-flex-center">
             <BiSolidPhoneOff />
             End Call
           </span>
@@ -124,7 +124,7 @@ function Options() {
         <>
           {/* Name Input */}
           <input
-            className="px-4 py-2 border rounded-md outline-blue-400 shadow-inner"
+            className="input-field"
             placeholder="Your Name"
             type="text"
             value={name}
@@ -132,8 +132,8 @@ function Options() {
           />
 
           {/* Room Options */}
-          <div className="flex flex-col gap-3">
-            <h3 className="text-lg font-semibold text-center flex items-center justify-center gap-2">
+          <div className="room-options">
+            <h3 className="room-title-header">
               <MdGroups />
               6-Person Room
             </h3>
@@ -145,9 +145,9 @@ function Options() {
               Create New Room
             </button>
             
-            <div className="flex gap-2">
+            <div className="join-room-container">
               <input
-                className="px-4 py-2 border rounded-md outline-blue-400 shadow-inner flex-1"
+                className="join-room-input"
                 placeholder="Room Code (6 digits)"
                 type="text"
                 value={roomCodeToJoin}
@@ -164,18 +164,18 @@ function Options() {
           </div>
 
           {/* Legacy 1-on-1 Call Option */}
-          <div className="mt-6 pt-4 border-t border-gray-200">
+          <div className="legacy-section">
             <button
-              className="text-sm text-gray-500 hover:text-gray-700 mb-2"
+              className="legacy-toggle"
               onClick={() => setShowLegacyCall(!showLegacyCall)}
             >
               {showLegacyCall ? "Hide" : "Show"} 1-on-1 Call Option
             </button>
             
             {showLegacyCall && (
-              <div className="flex gap-2">
+              <div className="legacy-call-container">
                 <input
-                  className="px-4 py-2 border rounded-md outline-blue-400 shadow-inner flex-1"
+                  className="legacy-input"
                   placeholder="User ID to call (4 digits)"
                   type="text"
                   value={idToCall}
@@ -186,7 +186,7 @@ function Options() {
                   className="btn-blue-grad"
                   onClick={() => callUser(idToCall)}
                 >
-                  <span className="flex gap-2 justify-center items-center">
+                  <span className="btn-flex-center">
                     <BiSolidPhoneCall />
                     Call
                   </span>
