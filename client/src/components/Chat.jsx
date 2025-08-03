@@ -6,6 +6,22 @@ import { LuSend } from "react-icons/lu";
 
 // Room Message Component
 const RoomMessage = ({ message, userName, userCode, timestamp, isOwnMessage }) => {
+  const [displayName, setDisplayName] = useState(userName || `User ${userCode}`);
+  const { socket } = useContext(SocketContext);
+
+  useEffect(() => {
+    if (!userName && userCode && socket) {
+      // Try to get the user name from server
+      socket.emit("getUserName", { userCode }, (response) => {
+        if (response.success && response.userName) {
+          setDisplayName(response.userName);
+        }
+      });
+    } else if (userName) {
+      setDisplayName(userName);
+    }
+  }, [userName, userCode, socket]);
+
   const formatTime = (timestamp) => {
     return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
@@ -21,7 +37,7 @@ const RoomMessage = ({ message, userName, userCode, timestamp, isOwnMessage }) =
       >
         {!isOwnMessage && (
           <div className="text-xs font-semibold mb-1">
-            User {userCode}
+            {displayName}
           </div>
         )}
         <div className="text-sm">{message}</div>
