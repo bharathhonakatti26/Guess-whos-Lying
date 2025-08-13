@@ -6,26 +6,40 @@ import { LuSend } from "react-icons/lu";
 
 // Room Message Component
 const RoomMessage = ({ message, userName, userCode, timestamp, isOwnMessage }) => {
+  const [displayName, setDisplayName] = useState(userName || `User ${userCode}`);
+  const { socket } = useContext(SocketContext);
+
+  useEffect(() => {
+    if (!userName && userCode && socket) {
+      // Try to get the user name from server
+      socket.emit("getUserName", { userCode }, (response) => {
+        if (response.success && response.userName) {
+          setDisplayName(response.userName);
+        }
+      });
+    } else if (userName) {
+      setDisplayName(userName);
+    }
+  }, [userName, userCode, socket]);
+
   const formatTime = (timestamp) => {
     return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
   return (
-    <div className={`flex ${isOwnMessage ? "justify-end" : "justify-start"} mb-2`}>
+    <div className={`message-container ${isOwnMessage ? "own" : "other"}`}>
       <div
-        className={`max-w-xs px-3 py-2 rounded-lg ${
-          isOwnMessage
-            ? "bg-blue-500 text-white"
-            : "bg-gray-200 text-gray-800"
+        className={`message-bubble ${
+          isOwnMessage ? "own" : "other"
         }`}
       >
         {!isOwnMessage && (
-          <div className="text-xs font-semibold mb-1">
-            User {userCode}
+          <div className="message-sender">
+            {displayName}
           </div>
         )}
-        <div className="text-sm">{message}</div>
-        <div className={`text-xs mt-1 ${isOwnMessage ? "text-blue-100" : "text-gray-500"}`}>
+        <div className="message-text">{message}</div>
+        <div className={`message-time ${isOwnMessage ? "own" : "other"}`}>
           {formatTime(timestamp)}
         </div>
       </div>
@@ -96,10 +110,10 @@ function Chat() {
     : null;
 
   return (
-    <div className="absolute bottom-0 w-full">
-      <div className="flex flex-col gap-2 p-3 px-5 max-h-72 sm:max-h-52 md:max-h-48 overflow-auto bg-white bg-opacity-95">
+    <div className="chat-container">
+      <div className="chat-messages">
         {currentRoom && (
-          <div className="text-center text-xs text-gray-500 border-b pb-2 mb-2">
+          <div className="chat-room-header">
             Room Chat
           </div>
         )}
@@ -107,9 +121,9 @@ function Chat() {
         <div ref={scrollDummyDiv}></div>
       </div>
       
-      <div className="flex w-full justify-center border bg-slate-50 p-3">
+      <div className="chat-input-container">
         <input
-          className="w-full p-2 px-4 py-2 border rounded-md outline-blue-400 shadow-inner"
+          className="chat-input"
           type="text"
           placeholder={currentRoom ? "Type a message to the room ✍️" : "Type your message ✍️"}
           value={message}
@@ -117,10 +131,10 @@ function Chat() {
           onKeyPress={handleKeyPress}
         />
         <button
-          className="ml-2 px-4 py-2 bg-gradient-to-tr from-indigo-600 to-blue-500 text-white shadow-lg shadow-indigo-300 rounded-md font-semibold text-sm active:from-indigo-700 active:to-blue-600"
+          className="btn-primary"
           onClick={handleSendMessage}
         >
-          <span className="flex gap-2 justify-center items-center">
+          <span className="btn-flex-center">
             <LuSend />
             Send
           </span>

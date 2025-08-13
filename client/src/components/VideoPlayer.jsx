@@ -1,10 +1,24 @@
-import React, { useContext, useEffect, useRef } from "react";
+import React, { useContext, useEffect, useRef, useState } from "react";
 import { SocketContext } from "../Context";
 
 // Individual user video component for rooms
 const UserVideo = ({ userCode, userName, isOwnVideo = false }) => {
-  const { userVideos, stream, me } = useContext(SocketContext);
+  const { userVideos, stream, me, socket } = useContext(SocketContext);
+  const [displayName, setDisplayName] = useState(userName || `User ${userCode}`);
   const videoRef = useRef();
+
+  useEffect(() => {
+    if (!userName && userCode && !isOwnVideo && socket) {
+      // Try to get the user name from server
+      socket.emit("getUserName", { userCode }, (response) => {
+        if (response.success && response.userName) {
+          setDisplayName(response.userName);
+        }
+      });
+    } else if (userName) {
+      setDisplayName(userName);
+    }
+  }, [userName, userCode, isOwnVideo, socket]);
 
   useEffect(() => {
     if (isOwnVideo && stream && videoRef.current) {
@@ -20,16 +34,16 @@ const UserVideo = ({ userCode, userName, isOwnVideo = false }) => {
   }, [userCode, stream, isOwnVideo, userVideos]);
 
   return (
-    <div className="relative bg-gray-900 rounded-lg overflow-hidden">
+    <div className="user-video">
       <video
         ref={videoRef}
         autoPlay
         muted={isOwnVideo}
-        className="w-full h-full object-cover video-element"
+        className="video-element"
         style={{ minHeight: '200px' }}
       />
-      <div className="absolute bottom-2 left-2 bg-black bg-opacity-75 text-white px-2 py-1 rounded text-sm">
-        {isOwnVideo ? `${userName || 'You'} (${me})` : `User ${userCode}`}
+      <div className="video-label">
+        {isOwnVideo ? `${userName || 'You'} (${me})` : displayName}
       </div>
     </div>
   );
@@ -61,12 +75,12 @@ function VideoPlayer() {
     const gridCols = totalUsers <= 2 ? 1 : totalUsers <= 4 ? 2 : 3;
     
     return (
-      <div className="w-full max-w-6xl mx-auto p-4">
+      <div className="video-container">
         <div 
-          className={`grid gap-4 ${
-            gridCols === 1 ? 'grid-cols-1' : 
-            gridCols === 2 ? 'grid-cols-1 md:grid-cols-2' : 
-            'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'
+          className={`video-grid ${
+            gridCols === 1 ? 'cols-1' : 
+            gridCols === 2 ? 'cols-2' : 
+            'cols-3'
           }`}
         >
           {/* My video */}
@@ -91,7 +105,7 @@ function VideoPlayer() {
         </div>
         
         {totalUsers < 6 && (
-          <div className="text-center mt-4 text-gray-500 text-sm">
+          <div className="waiting-message">
             Waiting for more participants... ({totalUsers}/6)
           </div>
         )}
@@ -101,17 +115,17 @@ function VideoPlayer() {
 
   // Legacy 1-on-1 video layout
   return (
-    <div className="flex justify-center gap-3">
-      <div className="flex flex-col gap-1">
-        <div className="flex items-baseline gap-2">
-          <h4 className="text-sm font-medium">{name === "" ? `You` : `${name} (You)`}</h4>
-          <h4 className="font-mono text-xs text-gray-700 bg-gradient-to-r from-indigo-200 to-blue-100 px-2 rounded">
+    <div className="legacy-video-container">
+      <div className="legacy-video-section">
+        <div className="legacy-video-header">
+          <h4 className="legacy-user-name">{name === "" ? `You` : `${name} (You)`}</h4>
+          <h4 className="legacy-user-id">
             ID: {me}
           </h4>
         </div>
         {stream && (
           <video 
-            className="rounded-xl video-element" 
+            className="legacy-video video-element" 
             muted 
             ref={myVideo} 
             autoPlay 
@@ -121,12 +135,12 @@ function VideoPlayer() {
       </div>
       
       {callAccepted && !callEnded && (
-        <div className="flex flex-col gap-1">
-          <div className="flex items-baseline gap-2">
-            <h4 className="text-sm font-medium">{call.name || "Unknown"}</h4>
+        <div className="legacy-video-section">
+          <div className="legacy-video-header">
+            <h4 className="legacy-user-name">{call.name || "Unknown"}</h4>
           </div>
           <video 
-            className="rounded-xl video-element" 
+            className="legacy-video video-element" 
             ref={userVideo} 
             autoPlay 
             width="400" 
